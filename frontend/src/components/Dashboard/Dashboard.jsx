@@ -26,11 +26,14 @@ const Dashboard = () => {
       const token = localStorage.getItem('token');
       const headers = { Authorization: `Bearer ${token}` };
 
-      const [balanceRes, appsRes, transRes] = await Promise.all([
-        axios.get(`${API_BASE_URL}/wallet/balance-check`, { headers }),
-        axios.get(`${API_BASE_URL}/forms/applications`, { headers }),
-        axios.get(`${API_BASE_URL}/wallet/transactions`, { headers })
-      ]);
+      // const [balanceRes, appsRes, transRes] = await Promise.all([
+      //   axios.get(`${API_BASE_URL}/wallet/balance-check`, { headers }),
+      //   // axios.get(`${API_BASE_URL}/forms/applications`, { headers }),
+      //   // axios.get(`${API_BASE_URL}/wallet/transactions`, { headers })
+      // ]);
+      const balanceRes = await axios.get(`http://localhost:5000/api/wallet/balance-check`,{headers});
+      const appsRes = await axios.get(`${API_BASE_URL}/forms/applications`,{headers});
+      const transRes = await axios.get(`${API_BASE_URL}/wallet/transactions`,{headers});
 
       setStats({
         ...balanceRes.data,

@@ -4,6 +4,7 @@ import db from "../config/db.js";
 // Verify JWT token
 export const verifyToken = async (req, res, next) => {
   const token = req.header("Authorization")?.replace("Bearer ", "");
+  console.log(token);
 
   if (!token) {
     return res.status(401).json({ message: "Access denied. No token provided." });
@@ -26,7 +27,7 @@ export const verifyToken = async (req, res, next) => {
   }
 };
 
-// Access control middleware - checks wallet balance or subscription for form submission
+// Access control middleware - checks wallet balance for form submission
 export const checkAccess = (formType) => {
   return async (req, res, next) => {
     try {
@@ -39,39 +40,33 @@ export const checkAccess = (formType) => {
         return res.status(404).json({ message: "Wallet not found" });
       }
 
-      const rate = formType === 'realtime_validation' ? 
-        parseFloat(process.env.REALTIME_VALIDATION_RATE) : 
-        parseFloat(process.env.BASIC_FORM_RATE);
+      const { balance, status, valid_until } = wallet[0];
 
-      // Check if user has active subscription
-      const [subscription] = await db.query(
-        "SELECT * FROM subscriptions WHERE user_id = ? AND status = 'active' AND end_date >= CURDATE() ORDER BY end_date DESC LIMIT 1",
-        [req.user.id]
-      );
+      const rate = formType === 'realtime_validation' 
+        ? parseFloat(process.env.REALTIME_VALIDATION_RATE) 
+        : parseFloat(process.env.BASIC_FORM_RATE);
 
-      if (subscription.length > 0) {
-        // User has active subscription, allow access
-        req.formRate = 0; // No charge for subscription users
-        req.accessType = 'subscription';
-        return next();
-      }
-
-      // Check prepaid wallet balance
-      if (wallet[0].balance < rate) {
-        return res.status(403).json({ 
-          message: "Insufficient balance. Please recharge your wallet or subscribe to a plan.",
-          required: rate,
-          current: wallet[0].balance
-        });
+      // Check wallet validity
+      if (valid_until && new Date(valid_until) < new Date()) {
+        return res.status(403).json({ message: "subscription validity expired" });
       }
 
       // Check if wallet is active
-      if (wallet[0].status !== 'active') {
-        return res.status(403).json({ message: "Wallet is inactive" });
+      if (status !== 'active') {
+        return res.status(403).json({ message: "subscription is inactive" });
+      }
+
+      // Check balance
+      if (balance < rate) {
+        return res.status(403).json({ 
+          message: "Insufficient balance. Please recharge your wallet.",
+          required: rate,
+          current: balance
+        });
       }
 
       req.formRate = rate;
-      req.accessType = 'prepaid';
+      req.accessType = 'prepaid'; // all wallet based access is prepaid
       next();
     } catch (error) {
       console.error("Access Check Error:", error);
@@ -79,6 +74,7 @@ export const checkAccess = (formType) => {
     }
   };
 };
+
 
 // Role-based access control
 export const checkRole = (allowedRoles) => {

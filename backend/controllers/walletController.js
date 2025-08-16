@@ -26,6 +26,7 @@ export const getWalletBalance = async (req, res) => {
 // Get wallet balance with access check for dashboard
 export const getWalletBalanceCheck = async (req, res) => {
   try {
+    console.log(req.user.id);
     const [wallet] = await db.query(
       "SELECT balance, status, valid_until FROM wallets WHERE user_id = ?",
       [req.user.id]
